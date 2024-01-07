@@ -2,14 +2,16 @@
 #include <MPU6050.h>
 #include "MAFMPU.hpp"
 
-constexpr int filterSize = 50;
+constexpr int filterSize = 100;
 constexpr int mass = 5;
+unsigned long prev_time = 0;
 
 MPU6050 mpu;
 
 MAFMPU<filterSize>* xAccFilter = nullptr;
 MAFMPU<filterSize>* yAccFilter = nullptr;
 MAFMPU<filterSize>* zAccFilter = nullptr;
+MAFMPU<filterSize>* velocityFilter = nullptr;
 
 float xAcc = 0;
 float yAcc = 0;
@@ -27,10 +29,14 @@ void setup() {
     xAccFilter = new MAFMPU<filterSize>(mpu);
     yAccFilter = new MAFMPU<filterSize>(mpu);
     zAccFilter = new MAFMPU<filterSize>(mpu);
+    velocityFilter = new MAFMPU<filterSize>(mpu);
 }
 
 void loop() {
 
+    const uint32_t curr_time = micros();
+    const float dt = static_cast<float>(curr_time - prev_time) / 1e6;
+    prev_time = curr_time;
     xAcc = mpu.readNormalizeAccel().XAxis;
     yAcc = mpu.readNormalizeAccel().YAxis;
     zAcc = mpu.readNormalizeAccel().ZAxis;
@@ -43,10 +49,10 @@ void loop() {
     float Y = yAccFilter->value();
     float Z = zAccFilter->value();
     float zAcceleration = -sqrt(X*X + Y*Y + Z*Z);
+    velocityFilter->sample(zAcceleration * dt * 100 + 4.1);
 
     // '>' is used to plot in the vscode extension 'Teleplot'
-    Serial.print(">Force: ");
-    Serial.println(mass * zAcceleration);
-    
-    delay(1); // Adjust as needed for your application
+    Serial.println(dt);
+    Serial.print(">Velocity: ");
+    Serial.println(velocityFilter->value());
 }
